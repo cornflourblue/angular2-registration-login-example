@@ -1,10 +1,10 @@
-﻿import { Http, BaseRequestOptions, Response, ResponseOptions, RequestMethod } from '@angular/http';
+﻿import { Http, BaseRequestOptions, Response, ResponseOptions, RequestMethod, XHRBackend, RequestOptions } from '@angular/http';
 import { MockBackend, MockConnection } from '@angular/http/testing';
 
 export let fakeBackendProvider = {
     // use fake backend in place of Http service for backend-less development
     provide: Http,
-    useFactory: (backend: MockBackend, options: BaseRequestOptions) => {
+    useFactory: (backend: MockBackend, options: BaseRequestOptions, realBackend: XHRBackend) => {
         // array in local storage for registered users
         let users: any[] = JSON.parse(localStorage.getItem('users')) || [];
 
@@ -40,6 +40,8 @@ export let fakeBackendProvider = {
                         // else return 400 bad request
                         connection.mockError(new Error('Username or password is incorrect'));
                     }
+
+                    return;
                 }
 
                 // get users
@@ -51,6 +53,8 @@ export let fakeBackendProvider = {
                         // return 401 not authorised if token is null or invalid
                         connection.mockRespond(new Response(new ResponseOptions({ status: 401 })));
                     }
+
+                    return;
                 }
 
                 // get user by id
@@ -69,6 +73,8 @@ export let fakeBackendProvider = {
                         // return 401 not authorised if token is null or invalid
                         connection.mockRespond(new Response(new ResponseOptions({ status: 401 })));
                     }
+
+                    return;
                 }
 
                 // create user
@@ -89,6 +95,8 @@ export let fakeBackendProvider = {
 
                     // respond 200 OK
                     connection.mockRespond(new Response(new ResponseOptions({ status: 200 })));
+
+                    return;
                 }
 
                 // delete user
@@ -114,7 +122,27 @@ export let fakeBackendProvider = {
                         // return 401 not authorised if token is null or invalid
                         connection.mockRespond(new Response(new ResponseOptions({ status: 401 })));
                     }
+
+                    return;
                 }
+
+                // pass through any requests not handled above
+                let realHttp = new Http(realBackend, options);
+                let requestOptions = new RequestOptions({
+                    method: connection.request.method,
+                    headers: connection.request.headers,
+                    body: connection.request.getBody(),
+                    url: connection.request.url,
+                    withCredentials: connection.request.withCredentials,
+                    responseType: connection.request.responseType
+                });
+                realHttp.request(connection.request.url, requestOptions)
+                    .subscribe((response: Response) => {
+                        connection.mockRespond(response);
+                    },
+                    (error: any) => {
+                        connection.mockError(error);
+                    });
 
             }, 500);
 
@@ -122,5 +150,5 @@ export let fakeBackendProvider = {
 
         return new Http(backend, options);
     },
-    deps: [MockBackend, BaseRequestOptions]
+    deps: [MockBackend, BaseRequestOptions, XHRBackend]
 };
