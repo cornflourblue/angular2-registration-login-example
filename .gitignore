@@ -40,3 +40,6 @@ typings
 # Generated files
 app/**/*.js
 app/**/*.js.map
+
+# VS Code settings
+.vscode
